@@ -494,10 +494,12 @@ static void test1_func(abts_case *tc, void *data)
     test_ue_remove(test_ue);
 }
 
+#define CONTEXT_TRANSFER_TEST 0
+
 static void test2_func(abts_case *tc, void *data)
 {
     int rv;
-    ogs_socknode_t *ngap;
+    ogs_socknode_t *ngap, *ngap2;
     ogs_socknode_t *gtpu;
     ogs_pkbuf_t *gmmbuf;
     ogs_pkbuf_t *gsmbuf;
@@ -539,9 +541,15 @@ static void test2_func(abts_case *tc, void *data)
     test_ue->k_string = "465b5ce8b199b49faa5f0a2ee238a6bc";
     test_ue->opc_string = "e8ed289deba952e4283b54e88e6183ca";
 
-    /* gNB connects to AMF */
+    /* gNB connects to AMF(default configuration) */
     ngap = testngap_client(AF_INET);
     ABTS_PTR_NOTNULL(tc, ngap);
+
+#if CONTEXT_TRANSFER_TEST
+    /* gNB connects to AMF(127.0.1.5) */
+    ngap2 = testsctp_client("127.0.1.5", OGS_NGAP_SCTP_PORT);
+    ABTS_PTR_NOTNULL(tc, ngap2);
+#endif
 
     /* gNB connects to UPF */
     gtpu = test_gtpu_server(1, AF_INET);
@@ -557,6 +565,19 @@ static void test2_func(abts_case *tc, void *data)
     recvbuf = testgnb_ngap_read(ngap);
     ABTS_PTR_NOTNULL(tc, recvbuf);
     testngap_recv(test_ue, recvbuf);
+
+#if CONTEXT_TRANSFER_TEST
+    /* Send NG-Setup Reqeust */
+    sendbuf = testngap_build_ng_setup_request(0x4000, 22);
+    ABTS_PTR_NOTNULL(tc, sendbuf);
+    rv = testgnb_ngap_send(ngap2, sendbuf);
+    ABTS_INT_EQUAL(tc, OGS_OK, rv);
+
+    /* Receive NG-Setup Response */
+    recvbuf = testgnb_ngap_read(ngap2);
+    ABTS_PTR_NOTNULL(tc, recvbuf);
+    testngap_recv(test_ue, recvbuf);
+#endif
 
     /********** Insert Subscriber in Database */
     doc = test_db_new_simple(test_ue);
@@ -733,6 +754,10 @@ static void test2_func(abts_case *tc, void *data)
     ogs_pkbuf_free(recvbuf);
 #endif
 
+#if CONTEXT_TRANSFER_TEST
+    ogs_msleep(300);
+#endif
+
     /* Send Registration request
      * - Update Registration request type
      * - Uplink Data Status */
@@ -754,7 +779,11 @@ static void test2_func(abts_case *tc, void *data)
     sendbuf = testngap_build_initial_ue_message(test_ue, gmmbuf,
                 NGAP_RRCEstablishmentCause_mo_Signalling, true, true);
     ABTS_PTR_NOTNULL(tc, sendbuf);
+#if CONTEXT_TRANSFER_TEST
+    rv = testgnb_ngap_send(ngap2, sendbuf);
+#else
     rv = testgnb_ngap_send(ngap, sendbuf);
+#endif
     ABTS_INT_EQUAL(tc, OGS_OK, rv);
 
     /* OLD Receive UEContextReleaseCommand */
@@ -943,6 +972,11 @@ static void test2_func(abts_case *tc, void *data)
 
     /* gNB disonncect from UPF */
     testgnb_gtpu_close(gtpu);
+
+#if CONTEXT_TRANSFER_TEST
+    /* gNB disonncect from AMF(127.0.1.5) */
+    testgnb_ngap_close(ngap2);
+#endif
 
     /* gNB disonncect from AMF */
     testgnb_ngap_close(ngap);
@@ -1521,10 +1555,14 @@ abts_suite *test_guti(abts_suite *suite)
 {
     suite = ADD_SUITE(suite)
 
+#if CONTEXT_TRANSFER_TEST
+    abts_run_test(suite, test2_func, NULL);
+#else
     abts_run_test(suite, test1_func, NULL);
     abts_run_test(suite, test2_func, NULL);
     abts_run_test(suite, test3_func, NULL);
     abts_run_test(suite, test4_issues2839_func, NULL);
+#endif
 
     return suite;
 }

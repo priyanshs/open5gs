@@ -429,7 +429,7 @@ int ogs_sbi_discover_and_send(ogs_sbi_xact_t *xact)
                                 discovery_option->tai.tac.v);
             }
 
-            if (discovery_option && discovery_option->target_guami) {
+            if (discovery_option && discovery_option->target_guami_presence) {
                 bool rc = false;
                 char *v = ogs_sbi_discovery_option_build_guami(discovery_option);
                 ogs_expect(v);
@@ -451,9 +451,9 @@ int ogs_sbi_discover_and_send(ogs_sbi_xact_t *xact)
                 if (rc == false)
                     ogs_error("build failed: guami[PLMN_ID:%06x,AMF_ID:%x]",
                                 ogs_plmn_id_hexdump(
-                                    &discovery_option->target_guami->plmn_id),
+                                    &discovery_option->target_guami.plmn_id),
                                 ogs_amf_id_hexdump(
-                                    &discovery_option->target_guami->amf_id));
+                                    &discovery_option->target_guami.amf_id));
             }
 
             if (discovery_option &&

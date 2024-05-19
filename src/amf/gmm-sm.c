@@ -1290,7 +1290,7 @@ static void common_register_state(ogs_fsm_t *s, amf_event_t *e,
                     discovery_option = ogs_sbi_discovery_option_new();
                     ogs_assert(discovery_option);
 
-                    memcpy(discovery_option->target_guami,
+                    memcpy(&discovery_option->target_guami,
                             amf_ue->guami, sizeof(ogs_guami_t));
 
                     int r = amf_ue_sbi_discover_and_send(
